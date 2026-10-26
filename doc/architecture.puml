@@ -1,0 +1,19 @@
+@startuml
+package "CLI" as CLI
+package "Commands" as Commands
+package "Application" as Application
+package "Domain" as Domain
+package "Infrastructure" as Infrastructure
+package "Presentation" as Presentation
+CLI --> Commands
+CLI --> Application
+CLI --> Infrastructure : 启动时注入
+CLI --> Presentation : 启动时注入
+Commands --> Application
+Commands --> Domain
+Commands --> Presentation
+Application --> Domain
+Infrastructure --> Application : 实现存储接口
+Infrastructure --> Domain
+Presentation --> Domain
+@enduml
