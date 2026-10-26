@@ -76,7 +76,9 @@ export class SvgCodec {
     const root = xml.documentElement!;
     for (const [name, value] of document.rootAttributes) this.setAttribute(root, name, value);
     for (const child of document.children) root.appendChild(this.writeShape(xml, child));
-    return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(xml)}\n`;
+    // XML normalizes literal CR on input; character references retain CLI-authored CR exactly.
+    const body = new XMLSerializer().serializeToString(xml).replace(/\r/g, '&#13;');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n${body}\n`;
   }
 
   private writeShape(xml: Document, shape: Shape): Element {

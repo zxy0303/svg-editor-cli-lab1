@@ -60,6 +60,17 @@ test('external transform, font, data attributes and viewBox survive round trip a
   assert.equal(restored.rootAttributes.get('viewBox'), '0 0 600 400');
 });
 
+test('CLI-authored CR/LF/tab text survives SVG XML newline normalization', () => {
+  const editor = new Editor();
+  const cli = new CommandDispatcher(editor);
+  cli.execute('init');
+  cli.execute('create text t 0 0 "a\\r\\nb\\t中😀"');
+  const codec = new SvgCodec();
+  const encoded = codec.encode(editor.document);
+  assert.match(encoded, /&#13;/);
+  assert.equal(codec.decode(encoded).document.require('t').textContent, 'a\r\nb\t中😀');
+});
+
 test('invalid XML, duplicate ids, foreign types, mixed content and invalid dimensions are rejected', () => {
   const codec = new SvgCodec();
   const cases = [
