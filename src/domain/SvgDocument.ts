@@ -6,6 +6,7 @@ export class SvgDocument {
   private root = new Group('\u0000svg-root');
   private canvasWidth: number;
   private canvasHeight: number;
+  private readonly metadata = new Map<string, string>();
 
   constructor(width = 800, height = 600) {
     this.canvasWidth = Value.positive(width, 'canvas width');
@@ -15,6 +16,10 @@ export class SvgDocument {
   get width(): number { return this.canvasWidth; }
   get height(): number { return this.canvasHeight; }
   get children(): readonly Shape[] { return this.root.children; }
+  get rootAttributes(): ReadonlyMap<string, string> {
+    return new Map([['viewBox', `0 0 ${this.width} ${this.height}`], ...this.metadata, ['width', String(this.width)], ['height', String(this.height)]]);
+  }
+  importRootAttribute(name: string, value: string): void { this.metadata.set(name, value); }
   get allShapes(): readonly Shape[] {
     const result: Shape[] = [];
     const visit = (shape: Shape): void => { result.push(shape); shape.children.forEach(visit); };
@@ -27,6 +32,7 @@ export class SvgDocument {
     const h = Value.positive(height, 'canvas height');
     this.canvasWidth = w;
     this.canvasHeight = h;
+    this.metadata.delete('viewBox');
   }
 
   has(id: string): boolean { return this.allShapes.some((shape) => shape.id === id); }
@@ -113,11 +119,12 @@ export class SvgDocument {
   clone(): SvgDocument {
     const copy = new SvgDocument(this.width, this.height);
     copy.root = this.root.clone();
+    for (const [name, value] of this.metadata) copy.metadata.set(name, value);
     return copy;
   }
 
   private assertAvailable(id: string): void {
-    if (id === this.root.id || this.has(id)) throw new Error(`id already exists: ${id}`);
+    if (id === this.root.id || id === this.metadata.get('id') || this.has(id)) throw new Error(`id already exists: ${id}`);
   }
 
   private ownerOf(id: string): Group { return this.parentOf(id) ?? this.root; }

@@ -2,6 +2,7 @@ import { Value } from './Value.js';
 
 export abstract class Shape {
   private readonly styles = new Map<string, string>();
+  private readonly imported = new Map<string, string>();
 
   protected constructor(private readonly identifier: string, private readonly tag: string) {
     if (!identifier.trim()) throw new Error('id must not be empty');
@@ -12,7 +13,13 @@ export abstract class Shape {
   get label(): string { return `${this.type}#${this.id}`; }
   get children(): readonly Shape[] { return []; }
   get textContent(): string | undefined { return undefined; }
-  get attributes(): ReadonlyMap<string, string> { return new Map(this.styles); }
+  get attributes(): ReadonlyMap<string, string> { return new Map([...this.imported, ...this.styles]); }
+
+  /** Preserve external SVG attributes without enlarging the CLI set whitelist. */
+  importAttribute(name: string, value: string): void {
+    if (['fill', 'stroke', 'stroke-width'].includes(name) || this.acceptsGeometry(name)) this.setAttribute(name, value);
+    else this.imported.set(name, value);
+  }
 
   setAttribute(name: string, value: string): void {
     if (name === 'fill' || name === 'stroke') {
@@ -34,8 +41,11 @@ export abstract class Shape {
     throw new Error(`unknown attribute: ${name}`);
   }
 
+  protected acceptsGeometry(_name: string): boolean { return false; }
+
   protected copyStylesTo<T extends Shape>(copy: T): T {
     for (const [name, value] of this.styles) copy.setAttribute(name, value);
+    for (const [name, value] of this.imported) copy.importAttribute(name, value);
     return copy;
   }
 }

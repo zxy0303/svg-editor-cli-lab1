@@ -45,6 +45,8 @@ export abstract class GeometryShape extends Shape {
     this.geometry.set(name, this.validate(name, value));
   }
 
+  protected override acceptsGeometry(name: string): boolean { return this.geometry.has(name); }
+
   private validate(name: string, value: string | number): number {
     return ['width', 'height', 'r', 'rx', 'ry'].includes(name)
       ? Value.nonnegative(value, name) : Value.number(value, name);

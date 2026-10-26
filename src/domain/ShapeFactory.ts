@@ -26,6 +26,7 @@ export class ShapeFactory {
 
   create(type: string, id: string, parameters: readonly string[]): Shape {
     const definition = this.definition(type);
+    if (!id || /[\s\u0000-\u001F\uFFFE\uFFFF\uD800-\uDFFF]/u.test(id)) throw new Error('invalid SVG id: must be nonempty and contain no whitespace or control characters');
     const min = definition.parameters.length;
     const max = min + (definition.style ? 1 : 0);
     if (parameters.length < min || parameters.length > max) {
@@ -40,7 +41,7 @@ export class ShapeFactory {
     const definition = this.definition(type);
     const parameters = definition.parameters.map((name) => name === 'text' ? text : attributes.get(name) ?? '0');
     const shape = definition.build(id, parameters);
-    for (const [name, value] of attributes) shape.setAttribute(name, value);
+    for (const [name, value] of attributes) shape.importAttribute(name, value);
     return shape;
   }
 
