@@ -14,7 +14,9 @@
 | `src/presentation/` | 结构树和属性明细的文字展示 |
 | `test/`、`examples/` | 自动化验证、可回放命令与外部 SVG 样例 |
 
-架构图源码如下；独立源码也将保存在 `doc/architecture.puml`。
+下图由 PlantUML 在本机生成；可编辑源码见 [architecture.puml](architecture.puml)。
+
+![模块包图](architecture.svg)
 
 ```plantuml
 @startuml
@@ -27,6 +29,7 @@ package "Infrastructure" as Infrastructure
 package "Presentation" as Presentation
 CLI --> Commands
 CLI --> Application
+CLI --> Domain : 图形工厂装配
 CLI --> Infrastructure : 启动时注入
 CLI --> Presentation : 启动时注入
 Commands --> Application
@@ -43,13 +46,35 @@ Presentation --> Domain
 
 - **Command（必选）**：编辑操作封装为独立命令对象，统一执行与撤销/重做。一条命令对应一个历史单元。
 - **Composite**：抽象图形统一定义平移、缩放、属性和克隆；`Group` 持有子图形，递归执行几何操作；叶子图形只处理自身属性。
-- **Memento**：编辑前后保存封装的文档副本。失败时恢复副本；历史用副本恢复整棵树、顺序和属性，避免每条复杂结构操作分别编写易错的逆操作。代价是每次编辑的时间、内存与文档大小成正比，适合本阶段小型文档。
+- **Memento**：编辑前后保存封装的文档副本。失败时恢复副本；历史用副本恢复整棵树、顺序和属性，避免每条复杂结构操作分别编写易错的逆操作。代价是每次编辑要复制文档，历史内存随文档大小和历史条数增长，适合本阶段小型文档。
 - **依赖倒置**：应用层声明 SVG 存储接口，基础设施实现；命令不直接操作磁盘。
 - **图形工厂 / 命令分发（待重构）**：仅这两处按名字选择实现。后续可改为插件注册，本阶段不建设完整插件框架。
 
+实际代码落点：
+
+| 角色 | 文件与行为 |
+| --- | --- |
+| 命令协议 / 具体命令 | `commands/Command.ts`、`commands/EditCommand.ts` 与各 `*Command.ts`；统一 execute，具体编辑实现 apply |
+| 调用者 / 接收者 | `application/Editor.ts` 组织事务；`domain/SvgDocument.ts` 与图形对象执行结构和几何行为 |
+| 历史 / 备忘录 | `application/History.ts` 管理过去与未来；`EditRecord.ts` 私有保存前后副本，并提供 undo/redo |
+| 组合与叶子 | `domain/Shape.ts` 统一接口；`Group.ts` 递归；五类叶子通过 `GeometryShape.ts` 复用几何验证 |
+| 两处分发（待重构） | `cli/CommandDispatcher.ts` 命令名表；`domain/ShapeFactory.ts` 类型名表；其他模块不按图形标签分派 |
+| IO 端口 / 适配器 | `application/SvgStorage.ts` 声明端口；`infrastructure/FileSvgStorage.ts` 实现，`Main.ts` 注入 |
+
 ### 3. 依赖方向规则
 
-图中箭头表示允许的直接依赖。领域层不依赖其他业务模块，应用层只依赖领域层；基础设施通过实现应用层接口被注入。展示层只读取领域对象。命令层使用应用层、领域层和展示层；CLI 为组合根，负责装配具体实现。禁止领域层反向调用命令、展示或文件系统。实现后检查 import 并记录差异。
+图中箭头表示允许的直接依赖；各模块内部允许相互引用。
+
+| 模块 | 允许依赖的其他业务模块 | 理由 |
+| --- | --- | --- |
+| domain | 无 | 独立封装图形行为与不变量 |
+| application | domain | 编排文档与历史，不绑定交互方式和磁盘 |
+| presentation | domain | 只读取模型，生成文本展示 |
+| infrastructure | application、domain | 实现应用端口，转换 SVG 和模型 |
+| commands | application、domain、presentation | 表达用户用例、调用核心、返回显示结果 |
+| cli | 其他五个模块 | 作为组合根装配工厂、存储、命令和展示 |
+
+Node IO 与第三方运行依赖只允许出现在 CLI 或基础设施。禁止领域层反向调用命令、展示或文件系统。`test/architecture.test.ts` 自动检查当前静态 import，违反规则即修正代码或如实修订方案。
 
 ### 4. 变化点假设
 
@@ -72,7 +97,7 @@ Presentation --> Domain
 - 架构方案选择 Command + Composite，并计划使用快照处理复杂结构的撤销和失败原子性，接受小型文档下的复制成本。
 - 首次严格编译发现 Node 类型未被自动包含，显式配置 `types: ["node"]`，并启用 `noEmitOnError` 防止编译失败仍产出可运行文件。
 
-后续在每个实现阶段补充实际发现、验证和修正，不以生成代码代替过程记录。
+以下记录本次与 Codex 协作的实际迭代；代码生成、自查与工具执行由 Codex 完成，没有把未发生的人工评审写成既成事实。
 
 ### 2026-10-26 · 第二步：领域模型
 
@@ -110,10 +135,94 @@ Presentation --> Domain
 - 在线 PlantUML 渲染因未授权源码外传被自动审批拒绝，改为下载官方工具后在本机渲染，不向在线服务提交架构源码。
 - 额外往返实验发现，CLI 输入的 CR/LF 文本会被 XML 规范的换行归一化改变。序列化时把字面 CR 写成字符引用 `&#13;`，增加测试确认中文、emoji、CR/LF 和 tab 都能保持。
 
+### 2026-10-26 · 第六步：文档与交付核对
+
+- 在临时目录运行官方便携 Java 与 PlantUML，使用 Smetana 本地布局生成实际 SVG 包图；工具不属于项目运行依赖，没有提交大型工具二进制。
+- 对图与代码逐条比对，发现初稿漏画 CLI 对领域工厂的依赖，补充图和依赖规则，并如实记入修订表。
+- 将一致性自查和质量保证的计划段落替换为实际结果、覆盖表和明确的实现范围。
+- 本地 32 项测试及对应提交在 GitHub Node.js 22/24 的检查均通过，图形预览和交互提示符实测完成。最终文档作为单独提交保留，交付以 `final` 标签定位。
+
 ## 三、一致性自查
 
-当前尚为工程骨架，实际模块与依赖将在实现完成后核对。若方案调整，记录原因与最终目录，不宣称尚未验证的内容已通过。
+### 1. 模块划分是否一致？
+
+一致。最终源码有 `domain`、`application`、`commands`、`cli`、`infrastructure`、`presentation` 六个目录；`src/cli.ts` 是只负责启动的入口。`test/` 为自动化验证，`examples/` 为回放材料，`.github/workflows/` 为 CI，`doc/` 为提交文档，不是额外业务模块。
+
+所有生产类采用一类一文件，类名与文件名相同；数据由私有字段和行为方法封装。接口和分词结果属于端口/传输类型，不替代有行为的图形模型。
+
+### 2. 依赖方向是否一致？
+
+最终静态检查通过，没有未处理的违规依赖。抽样核查：
+
+- `Shape`、`Group`、`SvgDocument` 只引用领域类，没有 Node IO。
+- `Editor` 只引用领域模型和本层的历史、存储接口，没有引用 `FileSvgStorage`。
+- `FileSvgStorage` 实现 `SvgStorage`，Node fs 仅出现在基础设施。
+- `Main` 负责注入 `FileSvgStorage`；`CommandDispatcher` 负责装配工厂和具体命令。
+- `TreePresenter` 只读取领域类，命令可以调用展示层，展示层不反向引用命令。
+
+修订记录：
+
+| 修订 | 原因与处理 |
+| --- | --- |
+| 补画 CLI → Domain | 最终核对发现 CLI 装配 `ShapeFactory` 的实际依赖未画在初稿中；组合根依赖领域工厂合理，已更新图、规则与静态检查使其一致 |
+| 增加静态检查和 CI | 不改变业务分层，为最终一致性提供可重复证据 |
+| 使用 Smetana 本地布局 | 让 PlantUML 无需系统 Graphviz 就能渲染包图；不改变依赖含义 |
+
+命令分发表和图形工厂的后续注册化重构仍保留为明确待处理项，不属于本阶段遗漏功能。
 
 ## 四、质量保证手段
 
-计划以严格 TypeScript 编译、领域单元测试、命令集成测试、SVG 往返测试、CLI 脚本回放与浏览器预览共同验证。最终在此记录实际执行的检查、结果和限制。
+### 1. 可重复验证
+
+```sh
+npm ci
+npm run check
+npm run --silent cli < examples/flowchart.commands
+npm run --silent cli < examples/session.commands
+```
+
+`check` 执行生产编译、源码与测试的严格类型检查，以及 32 项自动化测试：
+
+| 测试文件 | 数量 | 核心覆盖 |
+| --- | --- | --- |
+| `domain.test.ts` | 7 | 五类叶子几何、递归组合、克隆、ID、树操作、顺序与数值验证 |
+| `commands.test.ts` | 10 | 六类创建、全部编辑命令、撤销重做、历史屏障、属性白名单、错误原子性、解析 |
+| `svg.test.ts` | 11 | XML 往返、缺失/冲突 ID、Unicode 与换行、属性保留、读写失败、默认读入路径 |
+| `cli.test.ts` | 2 | 启动真实 REPL 子进程，回放课程典型会话和流程图 |
+| `architecture.test.ts` | 2 | 静态依赖方向、一类一文件与顶层过程式函数检查 |
+
+用真实文件系统验证不可写文件、无效路径、失败不破坏历史，保存采用同目录临时文件加原子替换。用极大坐标溢出验证“部分子孙已修改”时仍能恢复整棵树。
+
+### 2. 功能完整性核对
+
+| 原文范围 | 实现与验证 |
+| --- | --- |
+| 文档命令 | init/read/save/canvas；默认 800×600、读入路径默认保存、查询不建立屏障 |
+| 内置类型与创建归属 | rect/circle/ellipse/line/text/g；全部支持 create 的 in 子句；未注册类型含 box 报错 |
+| 编辑命令 | delete/move/scale/set/group/ungroup/addto/front/back，容器与叶子统一路径 |
+| 历史规则 | 每条编辑一个单元，成功新编辑清空 redo；IO 成功清空旧历史并锁定，下一条编辑解禁 |
+| 显示 | tree 含关键几何属性，tree id 限定子树；show 含父级；help 含全部语法 |
+| 通用约定 | svg> 提示符、注释行、双引号、浮点坐标、唯一大小写敏感 ID、统一 error 前缀、失败不改状态 |
+| 导入导出 | 合法 SVG、缺 ID 自动补且警告、保存后可读回，六类图形和嵌套结构保持 |
+
+终端 TTY 实测了 `svg>`、逐行输入、中文带空格文字与 show；脚本模式省略提示符，方便记录和回放。典型会话出现的非法分组与 save 后 undo 两条错误属于预期结果。
+
+流程图离线渲染结果如下，已检查矩形、连接线、中文文字及撤销后的坐标：
+
+![两节点流程图预览](flowchart-preview.png)
+
+### 3. 验证结果与范围
+
+- 本机 Node.js 25.8.1：编译、类型检查和 32 项测试通过。
+- GitHub Actions 在 Node.js 22、24 执行干净安装与检查，包含 32 项测试的提交 `68b5215` 已通过；记录见[本次检查](https://github.com/zxy0303/svg-editor-cli-lab1/actions/runs/40286340513)。
+- 内置浏览器禁止打开本地文件，本次图像实测采用本地 SVG 栅格渲染，没有把它描述成浏览器兼容性测试。SVG 文件可交由普通浏览器手动预览。
+- 历史使用整文档快照，时间与内存开销随文档大小和历史条数增长；未做大型文档性能优化。
+- 这是六类图形的 SVG 子集编辑器。未知元素（如 path/tspan/defs）、损坏 XML、DTD/实体声明显式报错；不提供完整 SVG 语法支持。几何参数采用纯数值，根宽高额外接受 px 后缀，百分比及其他单位未实现。
+- 外部额外属性可保留，但 CLI 只允许题目定义的 set 白名单；已有 transform 保留且编辑局部坐标，未做跨变换容器的世界坐标补偿。canvas 修改会重设 viewBox 为 `0 0 w h`。
+- `box`、插件系统、图形界面属于后续阶段，按本阶段边界未实现。
+
+### 4. 提交检查
+
+代码和本文通过分步 Git 提交保留演进，远程仓库为 [zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)。交付版本以最终提交上的 `final` tag 标识，并推送到远程；截止日期为 2026-10-31，具体时刻以课程平台为准。仓库为私有，课程提交前需确保评阅者可访问，具体课程平台提交入口未在题目中给出。
+
+工具资料：[PlantUML 编码与渲染说明](https://plantuml.com/text-encoding)、[GitHub checkout](https://github.com/actions/checkout)、[GitHub setup-node](https://github.com/actions/setup-node)。架构图使用官方 PlantUML 1.2026.9 的本地渲染，不向在线服务发送源码。

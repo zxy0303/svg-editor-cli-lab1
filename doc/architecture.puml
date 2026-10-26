@@ -8,6 +8,7 @@ package "Infrastructure" as Infrastructure
 package "Presentation" as Presentation
 CLI --> Commands
 CLI --> Application
+CLI --> Domain : 图形工厂装配
 CLI --> Infrastructure : 启动时注入
 CLI --> Presentation : 启动时注入
 Commands --> Application
