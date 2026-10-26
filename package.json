@@ -12,7 +12,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/cli.js",
     "test": "node --import tsx --test test/*.test.ts",
-    "check": "npm run build && npm test"
+    "typecheck": "tsc -p tsconfig.test.json",
+    "check": "npm run build && npm run typecheck && npm test"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12"
