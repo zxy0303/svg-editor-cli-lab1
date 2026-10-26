@@ -123,7 +123,7 @@ export class SvgCodec {
 
   private validateId(id: string): void {
     this.validateXmlText(id);
-    if (!id || /\s/u.test(id)) throw new Error('invalid SVG id: must be nonempty and contain no whitespace');
+    Value.identifier(id);
   }
 
   private validateXmlText(value: string): void {

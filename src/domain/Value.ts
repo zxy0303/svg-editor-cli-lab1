@@ -1,4 +1,10 @@
 export class Value {
+  static identifier(value: string): void {
+    if (!value || /[\s\u0000-\u001F\uFFFE\uFFFF\uD800-\uDFFF]/u.test(value)) {
+      throw new Error('invalid SVG id: must be nonempty and contain no whitespace or control characters');
+    }
+  }
+
   static number(value: string | number, name: string): number {
     const result = typeof value === 'number' ? value : Number(value);
     if ((typeof value === 'string' && !value.trim()) || !Number.isFinite(result)) {

@@ -74,7 +74,6 @@ export class Editor {
     if (!target) throw new Error('no file path. use save <file.svg>');
     if (!this.storage) throw new Error('SVG storage is not configured');
     this.storage.write(target, document);
-    this.sourcePath = target;
     this.history.barrier();
     return `saved to ${target} (${document.allShapes.length} elements)`;
   }

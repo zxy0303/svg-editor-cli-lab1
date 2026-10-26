@@ -97,6 +97,8 @@ test('save/read barriers, default paths and new edit unlocking history', (contex
   run(`save "${file}"`);
   assert.deepEqual(cli.execute('undo'), ['error: undo not allowed after io command']);
   assert.deepEqual(cli.execute('redo'), ['error: undo not allowed after io command']);
+  assert.deepEqual(cli.execute('save'), ['error: no file path. use save <file.svg>']);
+  run(`read "${file}"`);
   run('move r 1 0');
   run('undo');
   assert.equal(editor.document.require('r').attributes.get('x'), '1');
@@ -109,8 +111,26 @@ test('save/read barriers, default paths and new edit unlocking history', (contex
   run('save');
   assert.equal(new FileSvgStorage().read(file).document.require('r').attributes.get('fill'), 'red');
   assert.equal(readdirSync(dir).length, 1);
+  const copy = join(dir, 'copy.svg');
+  run(`save "${copy}"`);
+  run('set r fill blue');
+  run('save');
+  assert.equal(new FileSvgStorage().read(file).document.require('r').attributes.get('fill'), 'blue');
+  assert.equal(new FileSvgStorage().read(copy).document.require('r').attributes.get('fill'), 'red');
   run('init');
   assert.deepEqual(cli.execute('save'), ['error: no file path. use save <file.svg>']);
+});
+
+test('ids are validated consistently for create and group, including before any structural mutation', () => {
+  const editor = new Editor();
+  const cli = new CommandDispatcher(editor);
+  cli.execute('init');
+  cli.execute('create rect r 1 2 3 4');
+  const before = new SvgCodec().encode(editor.document);
+  for (const line of ['create g "has space"', 'create g ""', 'group "has space" r', 'group "" r']) {
+    assert.match(cli.execute(line)[0]!, /^error: invalid SVG id:/);
+    assert.equal(new SvgCodec().encode(editor.document), before);
+  }
 });
 
 test('failed file operations preserve document, source path and redo; writes are atomic and leave no temp files', (context) => {

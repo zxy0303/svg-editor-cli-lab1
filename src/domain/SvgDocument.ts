@@ -124,6 +124,7 @@ export class SvgDocument {
   }
 
   private assertAvailable(id: string): void {
+    Value.identifier(id);
     if (id === this.root.id || id === this.metadata.get('id') || this.has(id)) throw new Error(`id already exists: ${id}`);
   }
 

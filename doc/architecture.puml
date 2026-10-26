@@ -1,4 +1,5 @@
 @startuml
+!pragma layout smetana
 package "CLI" as CLI
 package "Commands" as Commands
 package "Application" as Application
