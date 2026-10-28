@@ -12,13 +12,13 @@ export class SvgCodec {
 
   decode(source: string): { readonly document: SvgDocument; readonly warnings: readonly string[] } {
     Value.xmlText(source);
-    if (/<!DOCTYPE|<!ENTITY/i.test(source)) throw new Error('invalid SVG: DTD and entities are not supported');
     let xml: Document;
     try {
       xml = new DOMParser({ onError: () => { throw new Error('malformed XML'); } }).parseFromString(source, 'image/svg+xml');
     } catch {
       throw new Error('invalid SVG: malformed XML');
     }
+    if (xml.doctype) throw new Error('invalid SVG: DTD and entities are not supported');
     const root = xml.documentElement;
     if (!root || root.localName !== 'svg') throw new Error('invalid SVG: expected <svg> root');
     this.validateNamespace(root);
@@ -127,5 +127,4 @@ export class SvgCodec {
     Value.xmlText(id);
     Value.identifier(id);
   }
-
 }

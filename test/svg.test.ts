@@ -86,6 +86,8 @@ test('invalid XML, duplicate ids, foreign types, mixed content and invalid dimen
     [svg('<rect id="r" width="-10"/>'), /width must be nonnegative/],
     ['<svg xmlns="http://example.com"/>', /unsupported namespace/],
     ['<!DOCTYPE svg><svg/>', /DTD and entities/],
+    ['<!DOCTYPE svg [<!ENTITY sample "value">]><svg><text id="t">&sample;</text></svg>', /invalid SVG:/],
+    ['<!ENTITY sample "value"><svg/>', /invalid SVG:/],
     ['<other/>', /expected <svg> root/],
   ] as const;
   for (const [source, expected] of cases) assert.throws(() => codec.decode(source), expected, source);
@@ -226,4 +228,22 @@ test('invalid decoded text cannot replace the current document or reset its hist
   assert.equal(new SvgCodec().encode(editor.document), before);
   assert.match(cli.execute('redo')[0]!, /^redone:/);
   assert.equal(editor.document.require('old').attributes.get('x'), '15');
+});
+
+test('declaration-like words in comments and CDATA do not reject an otherwise supported SVG', () => {
+  const codec = new SvgCodec();
+  const literal = '<!DOCTYPE example> and <!ENTITY example "value">';
+  for (const [prefix, comment, content, expected] of [
+    ['<!-- literal <!DOCTYPE svg> -->', '', 'ordinary', 'ordinary'],
+    ['', '<!-- literal <!ENTITY example "value"> -->', 'ordinary', 'ordinary'],
+    ['', '', `<![CDATA[${literal}]]>`, literal],
+  ]) {
+    const source = prefix + svg(`<g id="scene">${comment}<text id="t">${content}</text></g>`);
+    const loaded = codec.decode(source);
+    assert.deepEqual(loaded.warnings, []);
+    assert.equal(loaded.document.allShapes.length, 2);
+    assert.equal(loaded.document.require('t').textContent, expected);
+    const restored = codec.decode(codec.encode(loaded.document));
+    assert.equal(restored.document.require('t').textContent, expected);
+  }
 });
