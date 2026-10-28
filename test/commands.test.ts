@@ -186,3 +186,26 @@ test('malformed commands and quote errors produce a single error line and leave 
     assert.equal(h.tree(), before);
   }
 });
+
+test('unserializable text and styles fail without changing document or redo history', () => {
+  const h = new Harness();
+  h.run('init');
+  h.run('create text t 10 20 "original"');
+  h.run('move t 5 0');
+  h.run('undo');
+  const before = h.tree();
+  for (const invalid of ['\u0000', '\u000B', '\uD800', '\uFFFF']) {
+    for (const line of [
+      `create text bad 0 0 "bad${invalid}text"`,
+      `create rect bad 0 0 10 10 "red${invalid}"`,
+      `set t text "bad${invalid}text"`,
+      `set t fill "red${invalid}"`,
+      `set t stroke "blue${invalid}"`,
+    ]) {
+      assert.deepEqual(h.cli.execute(line), ['error: invalid SVG: illegal XML character']);
+      assert.equal(h.tree(), before);
+    }
+  }
+  h.run('redo');
+  assert.equal(h.editor.document.require('t').attributes.get('x'), '15');
+});

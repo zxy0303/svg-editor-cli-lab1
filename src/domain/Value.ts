@@ -1,4 +1,10 @@
 export class Value {
+  static xmlText(value: string): void {
+    if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF\uD800-\uDFFF]/u.test(value)) {
+      throw new Error('invalid SVG: illegal XML character');
+    }
+  }
+
   static identifier(value: string): void {
     if (!value || /[\s\u0000-\u001F\uFFFE\uFFFF\uD800-\uDFFF]/u.test(value)) {
       throw new Error('invalid SVG id: must be nonempty and contain no whitespace or control characters');

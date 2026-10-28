@@ -195,3 +195,35 @@ test('failed read emits no partial missing-id warnings and cannot replace the cu
   cli.execute('undo');
   assert.equal(editor.document.children.length, 0);
 });
+
+test('decoded XML character references must also be valid in text and attributes', () => {
+  const codec = new SvgCodec();
+  for (const reference of ['&#0;', '&#11;', '&#xFFFF;', '&#xD800;']) {
+    for (const source of [
+      svg(`<text id="t">${reference}</text>`),
+      svg(`<rect id="r" fill="red${reference}"/>`),
+      svg(`<g id="g" data-note="${reference}"/>`),
+      svg('', `width="400" height="300" data-note="${reference}"`),
+    ]) {
+      assert.throws(() => codec.decode(source), /invalid SVG:/, source);
+    }
+  }
+});
+
+test('invalid decoded text cannot replace the current document or reset its history', (context) => {
+  const dir = mkdtempSync(join(tmpdir(), 'svg-editor-'));
+  context.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, 'invalid-reference.svg');
+  writeFileSync(file, svg('<rect/><text id="bad">&#0;</text>'));
+  const editor = new Editor(new FileSvgStorage());
+  const cli = new CommandDispatcher(editor);
+  cli.execute('init');
+  cli.execute('create rect old 10 20 30 40');
+  cli.execute('move old 5 0');
+  cli.execute('undo');
+  const before = new SvgCodec().encode(editor.document);
+  assert.deepEqual(cli.execute(`read ${file}`), ['error: invalid SVG: illegal XML character']);
+  assert.equal(new SvgCodec().encode(editor.document), before);
+  assert.match(cli.execute('redo')[0]!, /^redone:/);
+  assert.equal(editor.document.require('old').attributes.get('x'), '15');
+});

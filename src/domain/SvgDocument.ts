@@ -19,7 +19,10 @@ export class SvgDocument {
   get rootAttributes(): ReadonlyMap<string, string> {
     return new Map([['viewBox', `0 0 ${this.width} ${this.height}`], ...this.metadata, ['width', String(this.width)], ['height', String(this.height)]]);
   }
-  importRootAttribute(name: string, value: string): void { this.metadata.set(name, value); }
+  importRootAttribute(name: string, value: string): void {
+    Value.xmlText(value);
+    this.metadata.set(name, value);
+  }
   get allShapes(): readonly Shape[] {
     const result: Shape[] = [];
     const visit = (shape: Shape): void => { result.push(shape); shape.children.forEach(visit); };

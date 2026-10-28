@@ -18,11 +18,15 @@ export abstract class Shape {
   /** Preserve external SVG attributes without enlarging the CLI set whitelist. */
   importAttribute(name: string, value: string): void {
     if (['fill', 'stroke', 'stroke-width'].includes(name) || this.acceptsGeometry(name)) this.setAttribute(name, value);
-    else this.imported.set(name, value);
+    else {
+      Value.xmlText(value);
+      this.imported.set(name, value);
+    }
   }
 
   setAttribute(name: string, value: string): void {
     if (name === 'fill' || name === 'stroke') {
+      Value.xmlText(value);
       if (!value.trim()) throw new Error(`${name} must not be empty`);
       this.styles.set(name, value);
     } else if (name === 'stroke-width') {
