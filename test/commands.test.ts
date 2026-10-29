@@ -209,3 +209,52 @@ test('unserializable text and styles fail without changing document or redo hist
   h.run('redo');
   assert.equal(h.editor.document.require('t').attributes.get('x'), '15');
 });
+
+test('cross-parent grouping preserves subtrees and undo restores every original sibling slot', () => {
+  const h = new Harness();
+  for (const line of [
+    'init', 'create g scene', 'create g left in scene', 'create g right in scene',
+    'create rect a 0 0 10 10 in left', 'create g node in left',
+    'create text label 20 30 "nested label" in node', 'create circle c 40 50 6 in left',
+    'create rect d 60 70 10 20 in right', 'create ellipse e 80 90 3 4 in right',
+    'create line outside 1 2 3 4 black',
+  ]) h.run(line);
+  const before = h.tree();
+  // Reverse argument order to check that original document order is retained.
+  h.run('group collected outside e node');
+  const doc = h.editor.document;
+  assert.deepEqual(doc.require('left').children.map((s) => s.id), ['a', 'collected', 'c']);
+  assert.deepEqual(doc.require('right').children.map((s) => s.id), ['d']);
+  assert.deepEqual(doc.require('collected').children.map((s) => s.id), ['node', 'e', 'outside']);
+  assert.equal(doc.parentOf('label')!.id, 'node');
+  assert.equal(doc.require('label').textContent, 'nested label');
+  const grouped = h.tree();
+  h.run('undo');
+  assert.equal(h.tree(), before);
+  assert.equal(h.editor.document.has('collected'), false);
+  h.run('redo');
+  assert.equal(h.tree(), grouped);
+  h.run('undo');
+  h.run('create g collected');
+  assert.deepEqual(h.cli.execute('redo'), ['error: nothing to redo']);
+});
+
+test('nested ungroup occupies its old slot and one undo restores the complete container', () => {
+  const h = new Harness();
+  for (const line of [
+    'init', 'create g scene', 'create rect before 0 0 1 1 in scene',
+    'create g pair in scene', 'create g nested in pair',
+    'create text label 2 3 "kept" in nested', 'create circle dot 4 5 6 in pair',
+    'create rect after 7 8 9 10 in scene',
+  ]) h.run(line);
+  const before = h.tree();
+  h.run('ungroup pair');
+  assert.deepEqual(h.editor.document.require('scene').children.map((s) => s.id), ['before', 'nested', 'dot', 'after']);
+  assert.equal(h.editor.document.parentOf('label')!.id, 'nested');
+  assert.equal(h.editor.document.has('pair'), false);
+  const ungrouped = h.tree();
+  h.run('undo');
+  assert.equal(h.tree(), before);
+  h.run('redo');
+  assert.equal(h.tree(), ungrouped);
+});
