@@ -18,13 +18,13 @@ export class TreePresenter {
   show(document: SvgDocument, id: string): readonly string[] {
     const shape = document.require(id);
     const lines = [`${shape.label}  parent=${document.parentOf(id)?.label ?? 'svg'}`];
-    for (const [name, value] of shape.attributes) lines.push(`  ${name}=${value}`);
+    for (const [name, value] of shape.attributes) lines.push(`  ${name}=${this.formatValue(value)}`);
     if (shape.textContent !== undefined) lines.push(`  text=${JSON.stringify(shape.textContent)}`);
     return lines;
   }
 
   private describe(shape: Shape): string {
-    const attrs = [...shape.attributes].map(([name, value]) => `${name}=${value}`).join(' ');
+    const attrs = [...shape.attributes].map(([name, value]) => `${name}=${this.formatValue(value)}`).join(' ');
     const text = shape.textContent === undefined ? '' : ` ${JSON.stringify(shape.textContent)}`;
     return `${shape.label}${attrs ? `  ${attrs}` : ''}${text}`;
   }
@@ -35,5 +35,9 @@ export class TreePresenter {
       lines.push(`${prefix}${last ? '└── ' : '├── '}${this.describe(shape)}`);
       this.append(shape.children, `${prefix}${last ? '    ' : '│   '}`, lines);
     });
+  }
+
+  private formatValue(value: string): string {
+    return /\s/u.test(value) ? JSON.stringify(value) : value;
   }
 }

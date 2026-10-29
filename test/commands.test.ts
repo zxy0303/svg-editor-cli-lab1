@@ -258,3 +258,25 @@ test('nested ungroup occupies its old slot and one undo restores the complete co
   h.run('redo');
   assert.equal(h.tree(), ungrouped);
 });
+
+test('tree and show keep whitespace-bearing attributes inline without changing stored values', () => {
+  const h = new Harness();
+  h.run('init');
+  h.run('create rect r 1 2 10 20 "rgb(255,\\n0,\\t0)"');
+  h.run('set r stroke "rgb(0,\\r\\n255,0)"');
+  const attributes = new Map(h.editor.document.require('r').attributes);
+  const tree = h.run('tree');
+  assert.equal(tree.length, 2);
+  for (const output of [tree, h.run('tree r'), h.run('show r')]) {
+    for (const line of output) assert.doesNotMatch(line, /[\r\n\t]/);
+    assert.ok(output.some((line) => line.includes('fill="rgb(255,\\n0,\\t0)"')));
+    assert.ok(output.some((line) => line.includes('stroke="rgb(0,\\r\\n255,0)"')));
+  }
+  assert.match(tree[1]!, /x=1 y=2 width=10 height=20/);
+  assert.deepEqual(h.editor.document.require('r').attributes, attributes);
+  assert.equal(attributes.get('fill'), 'rgb(255,\n0,\t0)');
+  h.run('undo');
+  assert.equal(h.editor.document.require('r').attributes.has('stroke'), false);
+  h.run('redo');
+  assert.deepEqual(h.editor.document.require('r').attributes, attributes);
+});
