@@ -120,7 +120,7 @@ export class SvgCodec {
   }
 
   private validateNamespace(element: Element): void {
-    if (element.namespaceURI && element.namespaceURI !== SvgCodec.namespace) throw new Error('invalid SVG: unsupported namespace');
+    if (element.namespaceURI !== SvgCodec.namespace) throw new Error('invalid SVG: unsupported namespace');
   }
 
   private validateId(id: string): void {

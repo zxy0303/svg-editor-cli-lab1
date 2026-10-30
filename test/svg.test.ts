@@ -247,3 +247,48 @@ test('declaration-like words in comments and CDATA do not reject an otherwise su
     assert.equal(restored.document.require('t').textContent, expected);
   }
 });
+
+test('SVG namespace checks reject explicit resets without breaking supported SVG inputs', () => {
+  const codec = new SvgCodec();
+  for (const source of [
+    '<svg xmlns=""><rect id="r"/></svg>',
+    svg('<g id="g" xmlns=""><rect id="r"/></g>'),
+    svg('<g id="g"><rect id="r" xmlns=""/></g>'),
+    svg('<g id="g" xmlns="urn:foreign"><rect id="r"/></g>'),
+  ]) assert.throws(() => codec.decode(source), /invalid SVG: unsupported namespace/, source);
+
+  // Both the existing default namespace behavior and namespace prefixes must remain supported.
+  for (const source of [
+    '<svg><rect id="r" x="1" y="2" width="3" height="4"/></svg>',
+    svg('<rect id="r" x="1" y="2" width="3" height="4"/>'),
+    '<s:svg xmlns:s="http://www.w3.org/2000/svg"><s:rect id="r" x="1" y="2" width="3" height="4"/></s:svg>',
+  ]) {
+    const loaded = codec.decode(source);
+    assert.deepEqual(loaded.warnings, []);
+    const restored = codec.decode(codec.encode(loaded.document));
+    assert.equal(restored.document.allShapes.length, 1);
+    assert.deepEqual([...restored.document.require('r').attributes], [...loaded.document.require('r').attributes]);
+    assert.equal(restored.document.require('r').type, 'rect');
+    assert.equal(restored.document.width, loaded.document.width);
+    assert.equal(restored.document.height, loaded.document.height);
+  }
+});
+
+test('a failed namespace read preserves document, default path and redo', (context) => {
+  const dir = mkdtempSync(join(tmpdir(), 'svg-editor-'));
+  context.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, 'namespace-reset.svg');
+  writeFileSync(file, svg('<rect/><g xmlns=""><rect id="foreign"/></g>'));
+  const editor = new Editor(new FileSvgStorage());
+  const cli = new CommandDispatcher(editor);
+  cli.execute('init');
+  cli.execute('create rect old 10 20 30 40');
+  cli.execute('move old 5 0');
+  cli.execute('undo');
+  const before = new SvgCodec().encode(editor.document);
+  assert.deepEqual(cli.execute(`read ${file}`), ['error: invalid SVG: unsupported namespace']);
+  assert.equal(new SvgCodec().encode(editor.document), before);
+  assert.deepEqual(cli.execute('save'), ['error: no file path. use save <file.svg>']);
+  assert.match(cli.execute('redo')[0]!, /^redone:/);
+  assert.equal(editor.document.require('old').attributes.get('x'), '15');
+});
