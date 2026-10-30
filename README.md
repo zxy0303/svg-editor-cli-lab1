@@ -2,6 +2,8 @@
 
 使用 TypeScript、Command 与 Composite 完成的课程项目。
 
+Git 仓库地址：[https://github.com/zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)。
+
 [![CI](https://github.com/zxy0303/svg-editor-cli-lab1/actions/workflows/ci.yml/badge.svg)](https://github.com/zxy0303/svg-editor-cli-lab1/actions/workflows/ci.yml)
 
 ## 环境和运行
@@ -61,4 +63,4 @@ save example.svg
 - [课程原始要求](phase_cli_1.md)
 - [流程图示例](examples/flowchart.svg)与[回放脚本](examples/flowchart.commands)
 
-最终版本通过 `final` tag 标识。仓库目前为私有，课程提交时需确保评阅者有访问权限。
+最终版本通过 [`final` tag](https://github.com/zxy0303/svg-editor-cli-lab1/tree/final) 标识。仓库已公开，可直接查看代码、文档和分步提交历史。课程系统上传文件请使用 [doc/README.md](doc/README.md)，其中包含仓库地址及课程要求的四节完整文档。

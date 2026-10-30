@@ -1,4 +1,35 @@
-# Lab1 Phase 1：架构与开发记录
+# Lab1 Phase 1：SVG 编辑器（CLI）课程作业
+
+## 提交信息
+
+- **Git 仓库地址：[https://github.com/zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)**
+- **最终交付版本：[final 标签](https://github.com/zxy0303/svg-editor-cli-lab1/tree/final)**。仓库已公开，评阅者无需登录即可查看代码、文档及分步提交历史。
+- 本文在工程中的位置为 `doc/README.md`，可直接将本文件作为 `README.md` 上传课程系统。
+- [课程要求原文](https://github.com/zxy0303/svg-editor-cli-lab1/blob/final/phase_cli_1.md)；截止日期为 **2026-10-31**，具体时刻以课程平台为准。
+
+## 运行与验收
+
+需要 Node.js 22 或更新版本及 npm。获取最终版本后，在项目根目录执行：
+
+```sh
+git clone https://github.com/zxy0303/svg-editor-cli-lab1.git
+cd svg-editor-cli-lab1
+git checkout final
+npm ci
+npm run check
+npm run cli
+```
+
+`npm run check` 执行编译、严格类型检查及 41 项自动化测试。也可在 `npm run build` 后使用 `npm start` 运行编译版本。
+
+两个课程案例可分别回放：
+
+```sh
+npm run --silent cli < examples/flowchart.commands
+npm run --silent cli < examples/session.commands
+```
+
+典型会话脚本中的非法分组、save 后 undo 两条错误是题目预期结果，程序会继续执行。以下依次提供课程要求的架构方案、过程记录、一致性自查与质量保证手段。
 
 ## 一、架构方案
 
@@ -14,9 +45,9 @@
 | `src/presentation/` | 结构树和属性明细的文字展示 |
 | `test/`、`examples/` | 自动化验证、可回放命令与外部 SVG 样例 |
 
-下图由 PlantUML 在本机生成；可编辑源码见 [architecture.puml](architecture.puml)。
+下图由 PlantUML 在本机生成；可编辑源码见 [architecture.puml](https://github.com/zxy0303/svg-editor-cli-lab1/blob/final/doc/architecture.puml)。图片使用完整地址，便于单独提交本文；下方同时保留 PlantUML 源码。
 
-![模块包图](architecture.svg)
+![模块包图](https://raw.githubusercontent.com/zxy0303/svg-editor-cli-lab1/refs/tags/final/doc/architecture.svg)
 
 ```plantuml
 @startuml
@@ -183,6 +214,14 @@ Node IO 与第三方运行依赖只允许出现在 CLI 或基础设施。禁止�
 - 用真实文件验证失败 read 只输出一条 error、不输出临时自动 ID 警告，当前文档、默认保存路径和 redo 均保持不变。编译、类型检查和 41 项测试通过。
 - 未增加图形类型、命令或依赖，模块和架构图无需调整；本次将修复及回归测试、文档验收同步分别提交，保留实际开发日期。
 
+### 2026-10-30 · 最终提交检查
+
+- 再次逐项核对课程原文、全部生产代码、架构依赖、文档四节、示例与 Git 历史，未发现需要进一步修正的 Phase 1 功能问题，没有增加课程范围以外的功能。
+- 从已提交内容导出独立临时目录，重新安装依赖；生产编译、源码与测试的严格类型检查、41 项自动化测试全部通过，未依赖工作目录中已有的构建产物。
+- 使用编译后的 CLI 分别回放两个课程脚本，并用独立 XML 解析器检查输出：流程图 8 个元素、典型会话保存文件 5 个元素，ID 均唯一；典型会话恰好产生题目指定的两条错误。
+- 额外执行不随工程发布的验收脚本，逐项验证 36 个允许的 set 属性组合及其 undo/redo、六类图形的 in 子句、help 的 19 个命令，以及容器平移缩放对全部几何属性的作用；检查通过。
+- 按提交者明确要求将仓库由私有改为公开，便于教师评阅；将仓库地址、final 版本和运行步骤置于本文开头，并将图和源码链接改为完整地址，使本文可单独上传课程系统。
+
 ## 三、一致性自查
 
 ### 1. 模块划分是否一致？
@@ -259,11 +298,12 @@ npm run --silent cli < examples/session.commands
 
 流程图离线渲染结果如下，已检查矩形、连接线、中文文字及撤销后的坐标：
 
-![两节点流程图预览](flowchart-preview.png)
+![两节点流程图预览](https://raw.githubusercontent.com/zxy0303/svg-editor-cli-lab1/refs/tags/final/doc/flowchart-preview.png)
 
 ### 3. 验证结果与范围
 
 - 本机 Node.js 25.8.1：2026-10-30 复查后，编译、类型检查和 41 项测试通过。
+- 最终交付前，在独立目录重新安装并通过同样的 41 项测试；另以编译产物回放课程案例、独立解析输出 XML，并逐项核验全部 36 个允许的 set 属性组合与撤销/重做。上述额外验收属于最终检查，不计入工程内 41 项测试的数量。
 - GitHub Actions 在 Node.js 22、24 执行干净安装与检查；10 月 26 日首次 32 项测试通过的记录见[首轮检查](https://github.com/zxy0303/svg-editor-cli-lab1/actions/runs/40286340513)，10 月 28 日含 36 项测试的修复提交 `53c3bd8` 见[当日复查](https://github.com/zxy0303/svg-editor-cli-lab1/actions/runs/40640171045)。10 月 29 日后续显示修复 `51d39f1` 的 39 项测试见[显示修复检查](https://github.com/zxy0303/svg-editor-cli-lab1/actions/runs/40831548985)。10 月 30 日命名空间修复 `3c681b2` 的 41 项测试也已通过两个环境，见[最新修复检查](https://github.com/zxy0303/svg-editor-cli-lab1/actions/runs/41021579382)。
 - 内置浏览器禁止打开本地文件，本次图像实测采用本地 SVG 栅格渲染，没有把它描述成浏览器兼容性测试。SVG 文件可交由普通浏览器手动预览。
 - 历史使用整文档快照，时间与内存开销随文档大小和历史条数增长；未做大型文档性能优化。
@@ -273,6 +313,6 @@ npm run --silent cli < examples/session.commands
 
 ### 4. 提交检查
 
-代码和本文通过分步 Git 提交保留演进，远程仓库为 [zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)。交付版本以最终提交上的 `final` tag 标识，并推送到远程；截止日期为 2026-10-31，具体时刻以课程平台为准。仓库为私有，课程提交前需确保评阅者可访问，具体课程平台提交入口未在题目中给出。
+代码和本文通过分步 Git 提交保留演进，远程仓库为 [zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)。交付版本以最终提交上的 `final` tag 标识，并推送到远程；截止日期为 2026-10-31，具体时刻以课程平台为准。仓库已公开，可直接查看源码、文档与提交历史；课程系统需上传的文件为本文 `README.md`，系统内提交由提交者完成。
 
 工具资料：[PlantUML 编码与渲染说明](https://plantuml.com/text-encoding)、[GitHub checkout](https://github.com/actions/checkout)、[GitHub setup-node](https://github.com/actions/setup-node)。架构图使用官方 PlantUML 1.2026.9 的本地渲染，不向在线服务发送源码。
