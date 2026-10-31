@@ -8,6 +8,8 @@ import { FileSvgStorage } from '../src/infrastructure/FileSvgStorage.js';
 import { Editor } from '../src/application/Editor.js';
 import { CommandDispatcher } from '../src/cli/CommandDispatcher.js';
 import { TreePresenter } from '../src/presentation/TreePresenter.js';
+import type { SvgDocument } from '../src/domain/SvgDocument.js';
+import type { Shape } from '../src/domain/Shape.js';
 
 const svg = (body: string, attrs = 'width="400" height="300"'): string => `<svg xmlns="http://www.w3.org/2000/svg" ${attrs}>${body}</svg>`;
 
@@ -59,6 +61,113 @@ test('external transform, font, data attributes and viewBox survive round trip a
   restored.resize(600, 400);
   assert.equal(restored.rootAttributes.get('viewBox'), '0 0 600 400');
 });
+
+test('course SVG group moves as a whole through consecutive edits, undo/redo and save/read', (context) => {
+  const source = [...readFileSync('phase_cli_1.md', 'utf8').matchAll(/```xml\n([\s\S]*?)\n```/g)]
+    .map((match) => match[1]!)
+    .find((xml) => xml.includes('<g id="diagram" transform="translate(60,40)">'));
+  assert.ok(source, 'the course nested-transform SVG example must be present');
+  const dir = mkdtempSync(join(tmpdir(), 'svg-editor-'));
+  context.after(() => rmSync(dir, { recursive: true, force: true }));
+  const input = join(dir, 'course input.svg');
+  const output = join(dir, 'course moved.svg');
+  writeFileSync(input, source);
+  const editor = new Editor(new FileSvgStorage());
+  const cli = new CommandDispatcher(editor);
+  const codec = new SvgCodec();
+  const run = (line: string): void => {
+    const result = cli.execute(line);
+    assert.ok(result.every((message) => !message.startsWith('error:')), result.join('\n'));
+  };
+  run(`read ${JSON.stringify(input)}`);
+  const points = (): readonly (readonly [number, number])[] => ['a', 'rect1'].flatMap((id) => rectanglePoints(editor.document, id));
+  const before = codec.encode(editor.document);
+  const original = points();
+  run('move diagram 10 0');
+  assertTranslation(points(), original, 10, 0);
+  const first = codec.encode(editor.document);
+  run('move diagram -2.5 1.25');
+  assertTranslation(points(), original, 7.5, 1.25);
+  const second = codec.encode(editor.document);
+  run('undo');
+  assert.equal(codec.encode(editor.document), first);
+  run('undo');
+  assert.equal(codec.encode(editor.document), before);
+  assert.deepEqual(cli.execute('set diagram transform "scale(2)"'), ['error: unknown attribute: transform']);
+  run('redo');
+  assert.equal(codec.encode(editor.document), first);
+  run('redo');
+  assert.equal(codec.encode(editor.document), second);
+  run(`save ${JSON.stringify(output)}`);
+  run(`read ${JSON.stringify(output)}`);
+  assertTranslation(points(), original, 7.5, 1.25);
+  assert.equal(editor.document.require('nodeB').attributes.get('transform'), 'translate(200,0) scale(0.8)');
+});
+
+test('transformed subtrees move together under plain or transformed outer containers', () => {
+  for (const outer of ['', 'transform="rotate(90) scale(1.5)"']) {
+    const codec = new SvgCodec();
+    const { document } = codec.decode(svg(`<g id="outer" ${outer}>
+      <rect id="a" x="1" y="2" width="3" height="4" transform="rotate(30,2,3)"/>
+      <g id="inner" transform="matrix(-2,0,0,3,40,-10)">
+        <rect id="b" x="5" y="6" width="7" height="8"/>
+        <g id="flat" transform="scale(0)"><rect id="c" x="9" y="10" width="11" height="12"/></g>
+      </g>
+    </g>`));
+    const points = (doc: SvgDocument): readonly (readonly [number, number])[] => ['a', 'b', 'c'].flatMap((id) => rectanglePoints(doc, id));
+    const before = points(document);
+    document.require('outer').move(0.75, -2.5);
+    assertTranslation(points(document), before, 0.75, -2.5);
+    const restored = codec.decode(codec.encode(document)).document;
+    assertTranslation(points(restored), before, 0.75, -2.5);
+  }
+});
+
+// Reference geometry for the transform forms used above; production code does not use this evaluator.
+function canvasPoint(document: SvgDocument, id: string, x: number, y: number): readonly [number, number] {
+  for (let shape: Shape | undefined = document.require(id); shape; shape = document.parentOf(shape.id)) {
+    const transforms = [...(shape.attributes.get('transform') ?? '').matchAll(/([a-zA-Z]+)\s*\(([^)]*)\)/g)];
+    for (const match of transforms.reverse()) {
+      const values = match[2]!.trim().split(/[\s,]+/).map(Number);
+      const a = values[0]!;
+      const b = values[1];
+      switch (match[1]) {
+        case 'translate': [x, y] = [x + a, y + (b ?? 0)]; break;
+        case 'scale': [x, y] = [x * a, y * (b ?? a)]; break;
+        case 'matrix': [x, y] = [a * x + values[2]! * y + values[4]!, b! * x + values[3]! * y + values[5]!]; break;
+        case 'rotate': {
+          const angle = a * Math.PI / 180;
+          const cx = b ?? 0;
+          const cy = values[2] ?? 0;
+          const dx = x - cx;
+          const dy = y - cy;
+          [x, y] = [cx + Math.cos(angle) * dx - Math.sin(angle) * dy, cy + Math.sin(angle) * dx + Math.cos(angle) * dy];
+          break;
+        }
+        default: assert.fail(`unhandled transform in test fixture: ${match[1]}`);
+      }
+    }
+  }
+  return [x, y];
+}
+
+function rectanglePoints(document: SvgDocument, id: string): readonly (readonly [number, number])[] {
+  const attrs = document.require(id).attributes;
+  const x = Number(attrs.get('x'));
+  const y = Number(attrs.get('y'));
+  const width = Number(attrs.get('width'));
+  const height = Number(attrs.get('height'));
+  const corners: readonly (readonly [number, number])[] = [[x, y], [x + width, y], [x, y + height], [x + width, y + height]];
+  return corners.map(([px, py]) => canvasPoint(document, id, px, py));
+}
+
+function assertTranslation(actual: readonly (readonly [number, number])[], before: readonly (readonly [number, number])[], dx: number, dy: number): void {
+  assert.equal(actual.length, before.length);
+  actual.forEach(([x, y], index) => {
+    assert.ok(Math.abs(x - before[index]![0] - dx) < 1e-9, `point ${index}: x displacement must equal ${dx}`);
+    assert.ok(Math.abs(y - before[index]![1] - dy) < 1e-9, `point ${index}: y displacement must equal ${dy}`);
+  });
+}
 
 test('CLI-authored CR/LF/tab text survives SVG XML newline normalization', () => {
   const editor = new Editor();

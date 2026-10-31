@@ -31,6 +31,12 @@ export class Group extends Shape {
   move(dx: number, dy: number): void {
     Value.number(dx, 'dx');
     Value.number(dy, 'dy');
+    if (this.containsTransform(this)) {
+      // Translate outside the existing subtree transforms, in this container's parent coordinates.
+      const previous = this.attributes.get('transform');
+      this.importAttribute('transform', `translate(${dx},${dy})${previous ? ` ${previous}` : ''}`);
+      return;
+    }
     for (const child of this.items) child.move(dx, dy);
   }
 
@@ -43,5 +49,9 @@ export class Group extends Shape {
     const copy = this.copyStylesTo(new Group(this.id));
     for (const child of this.items) copy.insert(child.clone());
     return copy;
+  }
+
+  private containsTransform(shape: Shape): boolean {
+    return shape.attributes.has('transform') || shape.children.some((child) => this.containsTransform(child));
   }
 }
