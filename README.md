@@ -1,66 +1,24 @@
-# SVG 编辑器 CLI · Lab1 Phase 1
+# Lab1 Phase 1：SVG 编辑器
 
-这是本次 Lab1 Phase 1 的课程作业，使用 TypeScript 编写，主要练习 Command 和 Composite 的使用。
+**Git 仓库地址：[https://github.com/zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)**
 
-Git 仓库地址：[https://github.com/zxy0303/svg-editor-cli-lab1](https://github.com/zxy0303/svg-editor-cli-lab1)。
+**提交版本：[final](https://github.com/zxy0303/svg-editor-cli-lab1/tree/final)**
 
-[![CI](https://github.com/zxy0303/svg-editor-cli-lab1/actions/workflows/ci.yml/badge.svg)](https://github.com/zxy0303/svg-editor-cli-lab1/actions/workflows/ci.yml)
+## 作业说明
 
-## 环境和运行
+本次作业我使用 TypeScript 实现了一个命令行 SVG 编辑器，支持矩形、圆、椭圆、直线、文字和分组容器六种类型。可以通过命令创建和修改图形、调整分组和显示顺序，并进行撤销重做、读取和保存 SVG 文件。
 
-需要 Node.js 22 或更新版本以及 npm。
+在设计上，使用 Command 模式组织编辑命令，使用 Composite 模式处理容器和普通图形，撤销重做采用文档快照。项目在 Codex 辅助下分步完成，开发过程和后续修改保留在仓库的提交记录中。
+
+完整的[课程作业报告](https://github.com/zxy0303/svg-editor-cli-lab1/blob/final/doc/README.md)保存在 `doc/README.md`，包含架构方案、过程记录、一致性自查和质量保证四部分。仓库中还提供了自动化测试、PlantUML 架构图，以及课程案例的命令脚本和 SVG 文件。
+
+## 运行方法
+
+需要 Node.js 22 或更新版本。下载仓库中的 final 版本后，在项目根目录执行：
 
 ```sh
 npm ci
 npm run cli
-npm run build
-npm start
 ```
 
-课程要求放在 [phase_cli_1.md](phase_cli_1.md)，架构设计、开发记录和测试情况写在 [doc/README.md](doc/README.md)。
-
-已实现六类图形、容器编辑、显示、撤销重做和 SVG 文件读写。
-
-运行 `npm run check` 可以依次完成编译、严格类型检查和自动化测试。
-
-## 示例
-
-```sh
-npm run --silent cli < examples/flowchart.commands
-npm run --silent cli < examples/session.commands
-```
-
-第一条生成 `examples/flowchart.svg`，可在浏览器直接打开。第二条回放题目典型会话，包含两条预期错误（非法分组、save 后撤销）。
-
-进入交互模式后可尝试：
-
-```text
-init
-create g scene
-create rect r1 20 30 100 60 #4a90d9 in scene
-create text t1 40 65 "Hello SVG" in scene
-move scene 20 0
-undo
-tree
-save example.svg
-```
-
-输入 `help` 查看全部 19 个命令，按 Ctrl+D 结束。`#` 开头的整行视为注释；带空格参数用双引号包裹。
-
-## 几点使用说明
-
-- 编辑命令可撤销/重做；失败不会改变文档或历史。显示和 canvas 查询不进入历史。
-- init/read/save/canvas 修改成功后清空历史并锁定 undo/redo，下一条编辑命令重新解禁。
-- 无参数 save 使用最近一次 read 的路径；显式另存为不会改变该路径。init 后须显式指定保存路径。
-- group 按原文档遍历顺序收编，并放在首个选中图形原来的位置。根级容器按题目要求不能 ungroup。
-- 本阶段只支持 rect/circle/ellipse/line/text/g。box 和完整插件框架不在本阶段范围。
-- 外部额外属性保留；含 transform 子树的容器移动时保持整组位移一致，增量以父坐标系为准。其他局部坐标编辑的范围与限制详见课程文档。
-
-## 提交材料
-
-- [架构、过程记录、一致性自查与质量保证](doc/README.md)
-- [PlantUML 源码](doc/architecture.puml)及[架构图](doc/architecture.svg)
-- [课程原始要求](phase_cli_1.md)
-- [流程图示例](examples/flowchart.svg)与[回放脚本](examples/flowchart.commands)
-
-最终版本使用 [`final` 标签](https://github.com/zxy0303/svg-editor-cli-lab1/tree/final)，仓库已公开。提交课程系统时使用 [doc/README.md](doc/README.md)，其中有仓库地址和完整的作业说明。
+进入程序后输入 `help` 查看命令，按 Ctrl+D 退出。运行 `npm run check` 可以进行编译、类型检查和自动化测试。
